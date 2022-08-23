@@ -1,8 +1,9 @@
 import React from 'react'
 import { Card, Badge, Typography, Button } from 'antd'
 import { ContractContext } from '../../context'
-import * as walletModule from '../../walletModule/wallet'
+import * as xerraFunction from '../../redux/actions/xerra'
 import './styles.css'
+import { useSelector } from 'react-redux'
 
 const WalletConnect = () => {
   const {
@@ -12,17 +13,11 @@ const WalletConnect = () => {
     account,
     myEtrBalance,
     myUsdtBalance,
+    myXerraBalance,
   } = React.useContext(ContractContext)
-
-
-  const generateWallet = () => {
-    const wallet = walletModule.createWallet()
-    console.log('wallet',wallet)
-    const encryptedWallet = walletModule.encryptWallet(wallet, '123')
-    console.log('encryptedWallet',encryptedWallet)
-    const decryptWallet = walletModule.decryptWallet(encryptedWallet, '123')
-    console.log('decryptwallet',decryptWallet)
-  }
+  const reward = useSelector((state) => state.rewardReducer)
+  const [myLiquidity, setMyLiquidity] = React.useState(0)
+  const [myUsdtStake, setMyUsdtStake] = React.useState(0)
 
   const networkName = (id) => {
     switch (id) {
@@ -40,7 +35,24 @@ const WalletConnect = () => {
         return 'Ganache local'
     }
   }
+  const init = async () => {
+    console.log(reward)
+    if (reward.myTokenStake * reward.myEtrStake) {
+      setMyLiquidity(Math.sqrt(reward.myTokenStake * reward.myEtrStake))
+    } else {
+      setMyLiquidity(0)
+    }
+    const myStake = await xerraFunction.getMyUsdtStake()
+    if (myStake) {
+      setMyUsdtStake(myStake)
+    } else {
+      setMyUsdtStake(0)
+    }
+  }
 
+  React.useState(() => {
+    init()
+  }, [reward])
 
   return (
     <div className="grid place-content-center">
@@ -48,9 +60,10 @@ const WalletConnect = () => {
         <Card
           style={{
             width: '600px',
-            height: '300px',
+            height: '450px',
             background: '#ececec',
             boxShadow: '5px 8px 24px 5px rgba(208, 216, 243, 0.6)',
+            borderRadius: '20px',
           }}
         >
           <div className="grid place-content-center">
@@ -78,7 +91,7 @@ const WalletConnect = () => {
               </div>
             )}
 
-            <Typography style={{ font: 'message-box',position:'relative' }}>
+            <Typography style={{ font: 'message-box', position: 'relative' }}>
               {' '}
               Address: {account}
             </Typography>
@@ -98,9 +111,26 @@ const WalletConnect = () => {
             >
               My ETR : {myEtrBalance} ETR
             </Typography.Text>
+            <Typography.Text
+              style={{ font: 'message-box', fontSize: '14px' }}
+              strong
+            >
+              My Xerra : {myXerraBalance} XRA
+            </Typography.Text>
+            <Typography.Text
+              style={{ font: 'message-box', fontSize: '14px' }}
+              strong
+            >
+              My Liquidity : {myLiquidity} USDT
+            </Typography.Text>
+            <Typography.Text
+              style={{ font: 'message-box', fontSize: '14px' }}
+              strong
+            >
+              My USDT Stale : {myUsdtStake} USDT
+            </Typography.Text>
           </div>
         </Card>
-      
       </div>
     </div>
   )

@@ -1,9 +1,11 @@
 import * as contract from '../../contractObject'
 import { ethers } from 'ethers'
+import * as api from '../api'
+import * as xerraFuntion from './xerra'
 
-
-export const ethersToInt = (num) => parseFloat(num / 1000000000000000000).toFixed(2)
-export const gweiToInt = (num) => ethers.utils.formatUnits(num,'gwei')
+export const ethersToInt = (num) =>
+  parseFloat(num / 1000000000000000000).toFixed(2)
+export const gweiToInt = (num) => ethers.utils.formatUnits(num, 'gwei')
 export const lockUsdt = async (params, history) => {
   try {
     const [
@@ -21,9 +23,7 @@ export const lockUsdt = async (params, history) => {
       .connect(poolSigner)
       .addTokenLiquidity(params)
     await usdtadd.wait()
-    alert('Usdt staked')
   } catch (error) {
-    alert('Something wrong')
     console.log(error)
   }
 }
@@ -40,14 +40,12 @@ export const lockEtr = async (params, history) => {
       .connect(poolSigner)
       .addEtrLiquidity(params)
     await etradd.wait()
-    alert('ETR staked')
   } catch (error) {
-    alert('Something wrong')
     console.log(error)
   }
 }
 
-export const lockElec = async (params, history) => {
+export const lockElecAndStake = async (params, history) => {
   try {
     const [
       poolContract,
@@ -56,9 +54,38 @@ export const lockElec = async (params, history) => {
     ] = await contract.poolContractObject()
     const elecadd = await poolContract.electricityToEtr(params)
     await elecadd.wait()
-    alert('Electricity locked')
+    await lockEtr(params)
   } catch (error) {
-    alert('Something wrong')
+    console.log(error)
+  }
+}
+
+export const lockElecGas = async (params) => {
+  try {
+    const [
+      poolContract,
+      poolSigner,
+      poolAddress,
+    ] = await contract.poolContractObject()
+    const gasData = await poolContract.estimateGas.electricityToEtr(params)
+    const gas = gweiToInt(gasData)
+    return gas
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+export const lockElec = async (params) => {
+  try {
+    const [
+      poolContract,
+      poolSigner,
+      poolAddress,
+    ] = await contract.poolContractObject()
+    const tx = await poolContract.electricityToEtr(params)
+    await tx.wait()
+    alert('Your electricity swap to ETR success')
+  } catch (error) {
     console.log(error)
   }
 }
@@ -70,33 +97,20 @@ export const getData = () => async (dispatch) => {
       poolSigner,
       poolAddress,
     ] = await contract.poolContractObject()
-    
-    console.log(poolContract)
-    const bigdata = await poolContract.getTotalTokenReserve()
-    console.log(bigdata)
-    const data = Number(ethers.utils.formatEther(bigdata))
-    const bigdata1 = await poolContract.getTotalEtrReserve()
-    const data1 = Number(ethers.utils.formatEther(bigdata1))
-    const bigdata2 = await poolContract.getTotalEtrSupply()
-    const data2 = Number(ethers.utils.formatEther(bigdata2))
-    const usdtRewardBalance = await poolContract.getTokenRewardBalance()
-    const usdtData = ethersToInt(Number(usdtRewardBalance))
-    const etrRewardBalance = await poolContract.getEtrRewardBalance()
-    const etrData = ethersToInt(Number(etrRewardBalance))
-    const usdtRewardRatio = await poolContract.getTokenRewardRatio()
-    const usdtRatioData = ethersToInt(Number(usdtRewardRatio))
-    const etrRewardRatio = await poolContract.getEtrRewardRatio()
-    const etrRatioData = ethersToInt(Number(etrRewardRatio))
+
+    const usdtData = await poolContract.getTotalTokenReserve()
+    const usdt = Number(ethers.utils.formatEther(usdtData))
+    const etrData = await poolContract.getTotalEtrReserve()
+    const etr = Number(ethers.utils.formatEther(etrData))
+    const elecData = await poolContract.getTotalEtrSupply()
+    const elec = Number(ethers.utils.formatEther(elecData))
+
     dispatch({
       type: 'FETCH_DATA',
       payload: {
-        usdt: data,
-        etr: data1,
-        elec: data2,
-        usdtRewardBalance: usdtData,
-        etrRewardBalance: etrData,
-        usdtRewardRatio: usdtRatioData,
-        etrRewardRatio: etrRatioData,
+        usdt: usdt,
+        etr: etr,
+        elec: elec,
       },
     })
   } catch (error) {
@@ -104,7 +118,41 @@ export const getData = () => async (dispatch) => {
   }
 }
 
-export const stakeUsdt = async (params, history) => {
+export const rewardData = () => async (dispatch) => {
+  try {
+    const [
+      poolContract,
+      poolSigner,
+      poolAddress,
+    ] = await contract.poolContractObject()
+
+    const myTokenStakeData = await poolContract.getMyTokenStakeBalance()
+    const myTokenStake = Number(ethers.utils.formatEther(myTokenStakeData))
+    const myEtrStakeData = await poolContract.getMyEtrStakeBalance()
+    const myEtrStake = Number(ethers.utils.formatEther(myEtrStakeData))
+
+    const totalRewardBalanceData = await poolContract.getTotalTokenRewardBalance()
+    const totalRewardBalance = Number(
+      ethers.utils.formatEther(totalRewardBalanceData),
+    )
+    // const myRewardData = await poolContract.getMyTokenReward()
+    // const myReward = Number(ethers.utils.formatEther(myRewardData))
+
+    dispatch({
+      type: 'REWARD_DATA',
+      payload: {
+        myTokenStake: myTokenStake,
+        myEtrStake: myEtrStake,
+        totalRewardBalance: totalRewardBalance,
+        // myReward: myReward,
+      },
+    })
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+export const withdrawUsdt = async (params, history) => {
   try {
     const [
       poolContract,
@@ -116,19 +164,98 @@ export const stakeUsdt = async (params, history) => {
       usdtSigner,
       usdtAddress,
     ] = await contract.usdtContractObject()
+    const [
+      xerraContract,
+      xerraSigner,
+      xerraAddress,
+    ] = await contract.xerraContractObject()
     await usdtContract.connect(poolSigner).approve(poolAddress, params)
-    const usdtadd = await poolContract
-      .connect(poolSigner)
-      .addTokenLiquidity(params)
-    await usdtadd.wait()
-    alert('USDT staked')
+    const [readableXerra, xerraAmount] = await getXerraStakeBalance()
+    if (readableXerra) {
+      await xerraContract.connect(poolSigner).approve(xerraAddress, xerraAmount)
+      await xerraContract.connect(poolSigner).approve(poolAddress, xerraAmount)
+      const usdtOutByXerra = await xerraFuntion.getUsdtAmount(xerraAmount)
+      const actualWithdraw =
+        ethersToInt(Number(params)) - Number(usdtOutByXerra) - 1
+      const newParams = ethers.utils.parseEther(actualWithdraw.toString())
+      const usdtadd = await poolContract
+        .connect(poolSigner)
+        .withdrawTokenLiquidity(newParams)
+      await usdtadd.wait()
+    } else {
+      const usdtadd = await poolContract
+        .connect(poolSigner)
+        .withdrawTokenLiquidity(params)
+      await usdtadd.wait()
+    }
+
+    if (readableXerra) {
+      await xerraFuntion.sellXerra(xerraAmount)
+    }
   } catch (error) {
-    alert('Something wrong')
     console.log(error)
   }
 }
 
-export const stakeEtr = async (params, history) => {
+export const withdrawUsdtEstimateGas = async (params) => {
+  try {
+    const [
+      poolContract,
+      poolSigner,
+      poolAddress,
+    ] = await contract.poolContractObject()
+    const [
+      usdtContract,
+      usdtSigner,
+      usdtAddress,
+    ] = await contract.usdtContractObject()
+    const [
+      xerraContract,
+      xerraSigner,
+      xerraAddress,
+    ] = await contract.xerraContractObject()
+    await usdtContract.connect(poolSigner).approve(poolAddress, params)
+    const [readableXerra, xerraAmount] = await getXerraStakeBalance()
+    if (readableXerra) {
+      await xerraContract.connect(poolSigner).approve(xerraAddress, xerraAmount)
+      await xerraContract.connect(poolSigner).approve(poolAddress, xerraAmount)
+      const usdtOutByXerra = await xerraFuntion.getUsdtAmount(xerraAmount)
+      const actualWithdraw =
+        ethersToInt(Number(params)) - Number(usdtOutByXerra) - 1
+      const newParams = ethers.utils.parseEther(actualWithdraw.toString())
+      const gasData = await poolContract.estimateGas.withdrawTokenLiquidity(
+        newParams,
+      )
+      const gas = gweiToInt(gasData)
+      return gas
+    } else {
+      const gasData = await poolContract.estimateGas.withdrawTokenLiquidity(
+        params,
+      )
+      const gas = gweiToInt(gasData)
+      return gas
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+export const getXerraStakeBalance = async () => {
+  try {
+    const [
+      poolContract,
+      poolSigner,
+      poolAddress,
+    ] = await contract.poolContractObject()
+
+    const myXerra = await poolContract.getXerraStakeBalance()
+    return [ethersToInt(Number(myXerra)), myXerra]
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+export const withdrawEtrEstimateGas = async (params) => {
   try {
     const [
       poolContract,
@@ -136,41 +263,14 @@ export const stakeEtr = async (params, history) => {
       poolAddress,
     ] = await contract.poolContractObject()
     await poolContract.connect(poolSigner).approve(poolAddress, params)
-    const etradd = await poolContract
-      .connect(poolSigner)
-      .addEtrLiquidity(params)
-    await etradd.wait()
-    alert('ETR staked')
+
+    const gasData = await poolContract.estimateGas.withdrawEtrLiquidity(params)
+    const gas = gweiToInt(gasData)
+    return gas
   } catch (error) {
-    alert('Something wrong')
     console.log(error)
   }
 }
-
-export const withdrawUsdt = async (params,history) =>{
-  try{
-    const [
-      poolContract,
-      poolSigner,
-      poolAddress,
-    ] = await contract.poolContractObject()
-    const [
-      usdtContract,
-      usdtSigner,
-      usdtAddress,
-    ] = await contract.usdtContractObject()
-    await usdtContract.connect(poolSigner).approve(poolAddress, params)
-    const usdtadd = await poolContract
-    .connect(poolSigner)
-    .withdrawTokenLiquidity(params)
-  await usdtadd.wait()
-  alert('USDT withdraw')
-  } catch(error){
-    console.log(error)
-    alert('something wrong')
-  }
-}
-
 export const withdrawEtr = async (params, history) => {
   try {
     const [
@@ -183,14 +283,12 @@ export const withdrawEtr = async (params, history) => {
       .connect(poolSigner)
       .withdrawEtrLiquidity(params)
     await etradd.wait()
-    alert('ETR withdraw')
   } catch (error) {
-    alert('Something wrong')
     console.log(error)
   }
 }
 
-export const etr2Electricity = async (params) =>{
+export const etr2Electricity = async (params) => {
   try {
     const [
       poolContract,
@@ -201,7 +299,103 @@ export const etr2Electricity = async (params) =>{
     await elecadd.wait()
     alert('Electricity exchanged')
   } catch (error) {
-    alert('Something wrong')
     console.log(error)
   }
+}
+
+export const etr2ElectricityGas = async (params) => {
+  try {
+    const [
+      poolContract,
+      poolSigner,
+      poolAddress,
+    ] = await contract.poolContractObject()
+    const gasData = await poolContract.estimateGas.etrToElectricity(params)
+    const gas = gweiToInt(gasData)
+    return gas
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+export const tokenBuy = async (params) => {
+  try {
+    const [
+      poolContract,
+      poolSigner,
+      poolAddress,
+    ] = await contract.poolContractObject()
+    const [
+      usdtContract,
+      usdtSigner,
+      usdtAddress,
+    ] = await contract.usdtContractObject()
+    console.log(params)
+
+    await usdtContract.connect(poolSigner).approve(poolAddress, params)
+    const tx = await poolContract.connect(poolSigner).tokenToEtrSwap(params)
+    await tx.wait()
+    alert('USDT buy success')
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+export const etrBuy = async (params) => {
+  try {
+    const [
+      poolContract,
+      poolSigner,
+      poolAddress,
+    ] = await contract.poolContractObject()
+    await poolContract.connect(poolSigner).approve(poolAddress, params)
+    const tx = await poolContract.connect(poolSigner).EtrToTokenSwap(params)
+    await tx.wait()
+    alert('Etr buy success')
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+export const tokenBuyGas = async (params) => {
+  try {
+    const [
+      poolContract,
+      poolSigner,
+      poolAddress,
+    ] = await contract.poolContractObject()
+    const [
+      usdtContract,
+      usdtSigner,
+      usdtAddress,
+    ] = await contract.usdtContractObject()
+
+    await usdtContract.connect(poolSigner).approve(poolAddress, params)
+    const gasData = await poolContract.estimateGas.tokenToEtrSwap(params)
+    const gas = gweiToInt(gasData)
+    return gas
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+export const etrBuyGas = async (params) => {
+  try {
+    const [
+      poolContract,
+      poolSigner,
+      poolAddress,
+    ] = await contract.poolContractObject()
+    await poolContract.connect(poolSigner).approve(poolAddress, params)
+    const gasData = await poolContract.estimateGas.EtrToTokenSwap(params)
+    const gas = gweiToInt(gasData)
+    return gas
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+export const getKey = () => async (dispatch) => {
+  const { data } = await api.getKey()
+  dispatch({ type: 'KEY_DATA', payload: data })
 }

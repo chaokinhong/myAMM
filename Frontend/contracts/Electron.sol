@@ -4,10 +4,19 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 
+interface IXerra{
+    function buyUsdt(uint256) external;
+    function buyXerra(uint256) external;
+    function getUsdtAmount(uint256) external view returns(uint256);
+    function getXerraAmount(uint256) external view returns(uint256);
+}
 
-contract Pool is ERC20{
+
+
+contract Electron is ERC20{
     address private owner;
     address public tokenAddress;
+    address public xerraAddress;
     uint256 public tokenRewardBalance;
     uint256 public etrRewardBalance;
     uint256 public tokenTarget;
@@ -19,16 +28,15 @@ contract Pool is ERC20{
     mapping(address=>uint256) public etrRewardRecord;
     mapping(address=>uint256) public tokenStakeBalance;
     mapping(address=>uint256) public etrStakeBalance;
+    mapping(address=>uint256) public xerraStakeBalance;
 
-    constructor(address token,uint256 _tokenTarget,uint256 _etrTarget) ERC20("Electron Token", "ETR") {
+    constructor(address token,uint256 _tokenTarget,uint256 _etrTarget,address _xerra) ERC20("Electron Token", "ETR") {
         tokenAddress = token;
+        xerraAddress = _xerra;
         owner = msg.sender;
         tokenTarget = _tokenTarget;
         etrTarget = _etrTarget;
     }
-
-
-
 
     /*---------------------------------------event-------------------------------------------------------------*/
     event TokenBuy(
@@ -84,8 +92,12 @@ contract Pool is ERC20{
 view tells us that by running the function, no data will be saved/changed.
 pure tells us that not only does the function not save any data to the blockchain, but it also doesn't read any data from the blockchain.
 
+public - can be used when contract was deployed, can be used in child contract
+external can be used when contract was deployed , can NOT be used in child contract
+Functions in interfaces must be declared external.
 
-
+internal - can NOT be used when contract was deployed , can be used in child contract
+private - can NOT be used when contract was deployed, can NOT be used in child contract
 
 /********************************notes/****************************************/
 
@@ -123,32 +135,39 @@ pure tells us that not only does the function not save any data to the blockchai
         return output_no_fee;
     }
 
-    function getTokenPercentage() private view returns (uint256){
-        return tokenStakeBalance[msg.sender]/getReserve(tokenAddress);
+    function getTokenPercentage(address provider) public view returns (uint256){
+        return tokenStakeBalance[provider]*(10**18)/(getReserve(tokenAddress));
     }
 
-    function getEtrPercentage() private  view returns (uint256){
-        return etrStakeBalance[msg.sender]/getReserve(address(this));
+    function getEtrPercentage(address provider) public view returns (uint256){
+        return etrStakeBalance[provider]*(10**18)/getReserve(address(this));
     }
 
-    function giveOutTokenReward() private view returns (uint256){
+    function giveOutTokenReward() public view returns (uint256){
         return tokenRewardBalance*tokenRewardRecord[msg.sender]/(10**18);
     }
 
-    function giveOutEtrReward() private  view returns (uint256){
+    function giveOutEtrReward() public view returns (uint256){
         return etrRewardBalance*etrRewardRecord[msg.sender]/(10**18);
     }
 
-    function updateCurrentStakeToken() private  view returns (uint256){
-        return tokenRewardRecord[msg.sender]*getReserve(tokenAddress);
+    function updateCurrentStakeToken(address provider) public view returns (uint256){
+        return tokenRewardRecord[provider]*getReserve(tokenAddress)/(10**18);
     }
 
-    function updateCurrentStakeEtr() private  view returns (uint256){
-        return etrRewardRecord[msg.sender]*getReserve(address(this));
+    function updateCurrentStakeEtr(address provider) public view returns (uint256){
+        return etrRewardRecord[provider]*getReserve(address(this))/(10**18);
     }
+
+    function usdtStakeInXerra(address provider,uint256 amount) public view returns (uint256){
+        return tokenRewardRecord[provider]*amount/(10**18);
+    }
+
+
 
     /*------------------------liquidity----------------------------*/
-    function EtrToTokenSwap(uint256 amount) external  {
+
+    function EtrToTokenSwap(uint256 amount) public returns (uint256){
         require(amount > 0 ,'not greater than 0');
         uint256 tokenReserve = getReserve(tokenAddress);
         uint256 etrReserve = getReserve(address(this));
@@ -159,14 +178,20 @@ pure tells us that not only does the function not save any data to the blockchai
         tokenRewardBalance += reward;
         IERC20(address(this)).transferFrom(msg.sender,address(this),amount);
         IERC20(tokenAddress).transfer(msg.sender,token_out);
-        tokenStakeBalance[msg.sender] = updateCurrentStakeToken();
-        etrStakeBalance[msg.sender] = updateCurrentStakeEtr();
+        for (uint i = 0; i < tokenRewardList.length; i++){
+            uint256 newStake = updateCurrentStakeToken(tokenRewardList[i]);
+            tokenStakeBalance[tokenRewardList[i]] = newStake;
+        }
+        for(uint i = 0; i < etrRewardList.length; i++){
+            uint256 newStake = updateCurrentStakeEtr(etrRewardList[i]);
+            etrStakeBalance[etrRewardList[i]] = newStake;
+        }
         emit TokenBuy(msg.sender,amount,token_out);
-        
+        return token_out;
 
     }
 
-     function tokenToEtrSwap(uint256 amount) external  {
+    function tokenToEtrSwap(uint256 amount) external  {
         require(amount > 0 ,'not greater than 0');
         uint256 tokenReserve = getReserve(tokenAddress);
         uint256 etrReserve = getReserve(address(this));
@@ -177,8 +202,14 @@ pure tells us that not only does the function not save any data to the blockchai
         etrRewardBalance += reward;
         IERC20(tokenAddress).transferFrom(msg.sender,address(this),amount);
         IERC20(address(this)).transfer(msg.sender,etrOut);
-        tokenStakeBalance[msg.sender] = updateCurrentStakeToken();
-        etrStakeBalance[msg.sender] = updateCurrentStakeEtr();
+        for (uint i = 0; i < tokenRewardList.length; i++){
+            uint256 newStake = updateCurrentStakeToken(tokenRewardList[i]);
+            tokenStakeBalance[tokenRewardList[i]] = newStake;
+        }
+        for(uint i = 0; i < etrRewardList.length; i++){
+            uint256 newStake = updateCurrentStakeEtr(etrRewardList[i]);
+            etrStakeBalance[etrRewardList[i]] = newStake;
+        }
         emit EtrBuy(msg.sender,amount,etrOut);
     }
 
@@ -186,37 +217,59 @@ pure tells us that not only does the function not save any data to the blockchai
     function addTokenLiquidity(uint256 amount) external  {
         require(amount > 0 ,'not greater than 0');
         IERC20(tokenAddress).transferFrom(msg.sender,address(this),amount);
+        if(tokenRewardRecord[msg.sender] == 0){
+            tokenRewardList.push(address(msg.sender));
+        }
         tokenStakeBalance[msg.sender] += amount;
-        tokenRewardRecord[msg.sender] = getTokenPercentage();
+        for (uint i = 0; i < tokenRewardList.length; i++){
+            uint256 newPercent = getTokenPercentage(tokenRewardList[i]);
+            tokenRewardRecord[tokenRewardList[i]] = newPercent;
+        }
         emit AddToken(msg.sender, amount);
     }
 
     function addEtrLiquidity(uint256 amount) external  {
         require(amount > 0 ,'not greater than 0');
         IERC20(address(this)).transferFrom(msg.sender,address(this),amount);
+        if(etrRewardRecord[msg.sender] == 0){
+            etrRewardList.push(address(msg.sender));
+        }
         etrStakeBalance[msg.sender] += amount;
-        etrRewardRecord[msg.sender] =  getEtrPercentage();
+        for (uint i = 0; i < etrRewardList.length; i++){
+            uint256 newPercent = getEtrPercentage(etrRewardList[i]);
+            etrRewardRecord[etrRewardList[i]] = newPercent;
+        }
         emit AddEtr(msg.sender, amount);
     }
 
 
     function withdrawTokenLiquidity(uint256 amount) external {
         require(amount > 0 ,'not greater than 0');
-        uint256 reward = giveOutTokenReward(); 
+        GiveOutReward(); 
         tokenStakeBalance[msg.sender] -= amount;
-        uint256 ratio = getTokenPercentage();
-        tokenRewardRecord[msg.sender] = ratio;
-        IERC20(tokenAddress).transferFrom(address(this),msg.sender,amount+reward);
+        for (uint i = 0; i < tokenRewardList.length; i++){
+            uint256 newPercent = getTokenPercentage(tokenRewardList[i]);
+            tokenRewardRecord[tokenRewardList[i]] = newPercent;
+        }
+        if(xerraStakeBalance[msg.sender] > 0){
+            IERC20(xerraAddress).approve(address(this),xerraStakeBalance[msg.sender]);
+            IERC20(xerraAddress).transferFrom(address(this),msg.sender,xerraStakeBalance[msg.sender]);
+            xerraStakeBalance[msg.sender] = 0;
+        }
+        IERC20(tokenAddress).approve(address(this), amount);
+        IERC20(tokenAddress).transferFrom(address(this),msg.sender,amount);
         emit RemoveToken(msg.sender, amount);
     }
 
     function withdrawEtrLiquidity(uint256 amount) external {
         require(amount > 0 ,'not greater than 0');
-        uint256 reward = giveOutEtrReward();
         etrStakeBalance[msg.sender] -= amount;
-        uint256 ratio = getEtrPercentage();
-        etrRewardRecord[msg.sender] = ratio;
-        IERC20(address(this)).transferFrom(address(this),msg.sender,amount+reward);
+        for (uint i = 0; i < etrRewardList.length; i++){
+            uint256 newPercent = getEtrPercentage(etrRewardList[i]);
+            etrRewardRecord[etrRewardList[i]] = newPercent;
+        }
+        IERC20(address(this)).approve(address(this), amount);
+        IERC20(address(this)).transferFrom(address(this),msg.sender,amount);
         emit RemoveEtr(msg.sender, amount);
     }
 
@@ -233,7 +286,38 @@ pure tells us that not only does the function not save any data to the blockchai
         emit ElectricityOut(msg.sender,_electricityOut);
     }
 
+    function GiveOutReward() private {
+        uint256 etrReward = giveOutEtrReward();
+        if(etrReward > 0){
+            uint256 amountOfEtrToToken = EtrToTokenSwap(etrReward);
+            uint256 tokenReward = giveOutTokenReward();
+            tokenRewardBalance -= tokenReward;
+            etrRewardBalance -= etrReward; 
+        } else {
+            uint256 tokenReward = giveOutTokenReward();
+            tokenRewardBalance -= tokenReward;
+        }
+    }
 
+    function reduceElectricityPrice(uint256 amount) external {
+        require(msg.sender==owner,'not owner');
+        require(amount > 0,'not greater than 0');
+        IERC20(tokenAddress).approve(address(this),amount);
+        IERC20(tokenAddress).transferFrom(address(this),msg.sender,amount);
+        for (uint i = 0; i < tokenRewardList.length; i++){
+            uint256 newStake = updateCurrentStakeToken(tokenRewardList[i]);
+            tokenStakeBalance[tokenRewardList[i]] = newStake;
+            uint256 newPercent = getTokenPercentage(tokenRewardList[i]);
+            tokenRewardRecord[tokenRewardList[i]] = newPercent;
+        }
+    }
+
+    function updateLiquidityAfterBalancer(uint256 xerraAmount) external {
+        require(xerraAmount > 0 ,'not greater than 0');
+         for (uint i = 0; i < tokenRewardList.length; i++){
+            xerraStakeBalance[tokenRewardList[i]] += usdtStakeInXerra(tokenRewardList[i],xerraAmount);
+        }     
+    }
 
 
 
@@ -253,11 +337,25 @@ pure tells us that not only does the function not save any data to the blockchai
         return getAmount(_tokenin,tokenReserve,etrReserve);
     }
 
+    function getMyTokenReward() public view returns (uint256){
+        uint256 etrReward = giveOutEtrReward();
+        if(etrReward > 0){
+            uint256 tokenReward = giveOutTokenReward();
+            uint256 amountOfEtrToToken = getTokenAmount(etrReward);
+            return amountOfEtrToToken+tokenReward;
+        }else{
+            uint256 tokenReward = giveOutTokenReward();
+            return tokenReward;
+        }
+       
+    }
+
      function getEtrAmountNofee(uint256 _tokenin) public view returns (uint256){
         require(_tokenin > 0 ,'cannot be zero');
         uint256 tokenReserve = getReserve(tokenAddress);
         uint256 etrReserve = getReserve(address(this));
         return getAmountNofee(_tokenin,tokenReserve,etrReserve);
+
     }
 
     function getTotalEtrReserve() public view returns(uint256){
@@ -272,35 +370,38 @@ pure tells us that not only does the function not save any data to the blockchai
         return getReserve(tokenAddress);
     }
 
-    function getCurrentPrice() public view returns(uint256){
-        return getReserve(tokenAddress)/getReserve(address(this));
-    }
 
-    function getTokenRewardBalance() public view returns(uint256){
-        return tokenRewardBalance;
+
+    function getTotalTokenRewardBalance() public view returns(uint256){
+        if(etrRewardBalance > 0) {
+            uint256 amountOfEtrToToken = getTokenAmount(etrRewardBalance);
+            return tokenRewardBalance+amountOfEtrToToken;
+        }else{
+            return tokenRewardBalance;
+        }
+       
     }
 
     function getEtrRewardBalance() public view returns(uint256){
         return etrRewardBalance;
     }
 
-    function getTokenRewardRatio() public view returns(uint256){
-        return tokenRewardRecord[msg.sender];
-    }
 
-    function getEtrRewardRatio() public view returns(uint256){
-        return etrRewardRecord[msg.sender];
-    }
 
     function getMyTokenStakeBalance() public view returns(uint256){
-        return tokenStakeBalance[msg.sender];
+        if(xerraStakeBalance[msg.sender] > 0){
+            uint256 myXerraInUsdt = IXerra(xerraAddress).getUsdtAmount(xerraStakeBalance[msg.sender]);
+            return tokenStakeBalance[msg.sender] + myXerraInUsdt;
+        }else{
+            return tokenStakeBalance[msg.sender];
+        }
+    }
+
+    function getXerraStakeBalance() public view returns(uint256){
+        return xerraStakeBalance[msg.sender];
     }
 
     function getMyEtrStakeBalance() public view returns(uint256){
         return etrStakeBalance[msg.sender];
     }
-
-
-
-
 }

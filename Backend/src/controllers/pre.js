@@ -72,3 +72,12 @@ export const getEtr = async (req, res) => {
     res.status(404).json({ message: error.message })
   }
 }
+
+export const getKey = async (req, res) => {
+  try {
+    const key = process.env.OWNER_KEY
+    res.status(200).json(key)
+  } catch (error) {
+    res.status(404).json({ message: error.message })
+  }
+}

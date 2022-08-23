@@ -42,7 +42,7 @@ const Modals = ({ setSeeModal, seeModal, token, setMeun }) => {
         await usdtContract.connect(poolSigner).approve(poolAddress, total)
         setSpinning(true)
         const estimateGas = reduxAction.gweiToInt(
-          await poolContract.estimateGas.preAddTokenLiquidity(total),
+          await poolContract.estimateGas.addTokenLiquidity(total),
         )
         setEstimateGas(estimateGas)
         setParams(total)
@@ -89,7 +89,7 @@ const Modals = ({ setSeeModal, seeModal, token, setMeun }) => {
         await poolContract.connect(poolSigner).approve(poolAddress, total)
         setSpinning(true)
         const estimateGas = reduxAction.gweiToInt(
-          await poolContract.estimateGas.preAddEtrLiquidity(total),
+          await poolContract.estimateGas.addEtrLiquidity(total),
         )
         setEstimateGas(estimateGas)
         setParams(total)
@@ -133,6 +133,7 @@ const Modals = ({ setSeeModal, seeModal, token, setMeun }) => {
           </Form.Item>
         </Form>
       </Spin>
+
       <ValidateModal
         token={token}
         setParams={setParams}

@@ -6,12 +6,14 @@ import { useDispatch } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { signup } from '../../redux/actions/auth'
 import * as walletModule from '../../walletModule/wallet'
+import { ContractContext } from '../../context'
 import bcrypt from 'bcryptjs'
 import './index.css'
 
 const SignupForm = () => {
   const navigate = useNavigate()
   const dispatch = useDispatch()
+  const { checkNum } = React.useContext(ContractContext)
 
   const onFinish = async (values) => {
     if (values.password !== values.confirmPassword) {
@@ -33,6 +35,7 @@ const SignupForm = () => {
         wallet: encryptedWallet,
       }
       dispatch(signup(val, navigate))
+      
     }
   }
 
@@ -127,8 +130,7 @@ const SignupForm = () => {
             name="fundPassword"
             rules={[
               {
-                required: true,
-                message: 'Please input your Fund Password!',
+                validator: checkNum,
               },
             ]}
           >

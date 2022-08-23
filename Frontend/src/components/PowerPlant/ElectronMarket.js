@@ -1,20 +1,30 @@
-import { Button, Card, Form, Modal, Typography, Input, Avatar } from 'antd'
+import { Button, Card, Form, Image, Typography, Input, Avatar } from 'antd'
 import * as reduxfunction from '../../redux/actions/pre'
 import ValidateModal from '../../walletModule/ValidationModal'
 import { ContractContext } from '../../context'
 import React from 'react'
 import { ethers } from 'ethers'
+import { useSelector } from 'react-redux'
 
-const ElectricityMarket = () => {
+const ElectronMarket = () => {
+  const itemStyle = {
+    backgroundColor: '#ebebf0',
+    borderRadius: '5px',
+    padding: '5px 20px 5px 20px',
+    width: '100%',
+    textAlign: 'right',
+    fontWeight: '700',
+  }
   const [seeModal, setSeeModal] = React.useState(false)
   const [curEtr, setCurEtr] = React.useState(0)
   const [disabled, setDisabled] = React.useState(true)
   const [params, setParams] = React.useState()
   const [estimateGas, setEstimateGas] = React.useState()
   const { myEtrBalance, setShowValidate } = React.useContext(ContractContext)
+  const pre = useSelector((state) => state.preReducer)
 
   const handleExchange = async (e) => {
-    const estimateGas = await reduxfunction.etr2ElectricityGas(params)
+    const estimateGas = await reduxfunction.lockElecGas(params)
     setEstimateGas(estimateGas)
     setShowValidate(true)
   }
@@ -31,7 +41,6 @@ const ElectricityMarket = () => {
       setDisabled(true)
     }
   }
-
   return (
     <Card
       style={{
@@ -39,9 +48,27 @@ const ElectricityMarket = () => {
         borderRadius: '10px',
       }}
     >
-      <Typography.Title level={3}>Electricity Market</Typography.Title>
+      <Typography.Title level={4}>Power Plant Overview</Typography.Title>
+
+      <Form.Item label="Total Electricity Generated" style={itemStyle}>
+        {pre.elec} Kwh
+      </Form.Item>
+
+      <Form.Item>
+        <div className="grid place-content-center">
+          <Image
+            width={150}
+            preview={false}
+            src="https://img.icons8.com/cotton/344/car-battery--v1.png"
+          />
+        </div>
+      </Form.Item>
+      <Form.Item label="My ETR" style={itemStyle}>
+        {myEtrBalance} ETR
+      </Form.Item>
+      <Typography.Title level={4}>Electricity Generated Exchange</Typography.Title>
       <Typography.Text style={{ color: 'gray' }}>
-        1 ETR = 1 kwh electricity
+        1 kwh electricity = 1 ETR
       </Typography.Text>
       <Form>
         <Form.Item
@@ -57,18 +84,14 @@ const ElectricityMarket = () => {
             onChange={handleCalculate}
             suffix={
               <div className="grid place-content-center grid-cols-2 h-full w-full">
-                <Avatar src="https://img.icons8.com/external-creatype-flat-colourcreatype/344/external-electron-science-education-flat-creatype-flat-colourcreatype.png" />
+                <Avatar src="https://img.icons8.com/cotton/344/electricity.png" />
                 <p className="grid place-content-center h-full font-bold text-slate-500">
-                  ETR
+                  Kwh
                 </p>
               </div>
             }
             value={curEtr}
           />
-          <Typography.Text style={{ color: 'gray' }}>
-            Available: <label style={{ color: 'black' }}>{myEtrBalance}</label>
-            <label> ETR</label>
-          </Typography.Text>
         </Form.Item>
         <Form.Item>
           <Button
@@ -88,7 +111,7 @@ const ElectricityMarket = () => {
         </Form.Item>
       </Form>
       <ValidateModal
-        token={'etr2elec'}
+        token={'elec2etr'}
         setParams={setParams}
         params={params}
         setEstimateGas={setEstimateGas}
@@ -99,4 +122,4 @@ const ElectricityMarket = () => {
   )
 }
 
-export default ElectricityMarket
+export default ElectronMarket

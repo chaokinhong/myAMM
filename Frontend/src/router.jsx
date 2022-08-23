@@ -9,6 +9,9 @@ import Bank from './components/Bank'
 import Pre from './components/Pre'
 import Investment from './components/Investment'
 import PowerPlant from './components/PowerPlant'
+import LiquidityMining from './components/Investment/liquidityMining'
+import XerraInvest from './components/Investment/xerra'
+import UsdtInvest from './components/Investment/usdt'
 
 const Router = () => {
   return (
@@ -22,6 +25,9 @@ const Router = () => {
       <Route path="/pre" element={<Pre />} />
       <Route path="/investment" element={<Investment />} />
       <Route path="/powerplant" element={<PowerPlant />} />
+      <Route path="/investment/liquiditymining" element={<LiquidityMining/>} />
+      <Route path="/investment/xerracrypto" element={<XerraInvest/>} />
+      <Route path="/investment/usdtstake" element={<UsdtInvest/>} />
     </Routes>
   )
 }

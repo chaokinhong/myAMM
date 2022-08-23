@@ -10,24 +10,24 @@ import {
   Button,
   Typography,
 } from 'antd'
-import * as contract from '../../contractObject'
+import * as contract from '../../../contractObject'
 import { ethers } from 'ethers'
-import { ContractContext } from '../../context'
+import { ContractContext } from '../../../context'
 import { useNavigate } from 'react-router'
-import ValidateModal from '../../walletModule/ValidationModal'
-import * as contractFunction from '../../redux/actions/pre'
-import { ifError } from 'assert'
+import ValidateModal from '../../../walletModule/ValidationModal'
+import * as contractFunction from '../../../redux/actions/pre'
+import * as xerraFunction from '../../../redux/actions/xerra'
 
-const Buy = () => {
+const BuyCard = () => {
   const {
     ethersToInt,
     setShowValidate,
-    myEtrBalance,
+    myXerraBalance,
     myUsdtBalance,
   } = React.useContext(ContractContext)
   const [isUsdt, setIsUsdt] = React.useState(true)
   const [curUsdt, setCurUsdt] = React.useState(0)
-  const [curEtr, setCurEtr] = React.useState(0)
+  const [curXra, setCurXra] = React.useState(0)
   const [params, setParams] = React.useState(0)
   const [token, setToken] = React.useState('')
   const [disabled, setDisabled] = React.useState(true)
@@ -35,7 +35,6 @@ const Buy = () => {
   const [estimateGas, setEstimateGas] = React.useState(0)
 
 
-  const navigate = useNavigate()
 
   const handleUsdtCalculate = async (e) => {
     const value = Number(e.target.value)
@@ -47,14 +46,13 @@ const Buy = () => {
       ] = await contract.poolContractObject()
 
       const total = ethers.utils.parseEther(value.toString())
-      const price = await poolContract.getEtrAmount(total)
-      const readablePrice = ethersToInt(price)
+      const readablePrice = await xerraFunction.getXerraAmount(total)
       setCurUsdt(value)
-      setCurEtr(readablePrice)
+      setCurXra(readablePrice)
       setParams(total)
       setDisabled(false)
     } else {
-      setCurEtr(0)
+      setCurXra(0)
       setCurUsdt(0)
       setDisabled(true)
     }
@@ -69,14 +67,14 @@ const Buy = () => {
         poolAddress,
       ] = await contract.poolContractObject()
       const total = ethers.utils.parseEther(value.toString())
-      const price = await poolContract.getTokenAmount(total)
-      const readablePrice = ethersToInt(price)
-      setCurEtr(value)
+     
+      const readablePrice = await xerraFunction.getUsdtAmount(total)
+      setCurXra(value)
       setCurUsdt(readablePrice)
       setParams(total)
       setDisabled(false)
     } else {
-      setCurEtr(0)
+      setCurXra(0)
       setCurUsdt(0)
       setDisabled(true)
     }
@@ -84,16 +82,16 @@ const Buy = () => {
 
   const handleUsdtBuy = async () => {
   
-    const gas = await contractFunction.tokenBuyGas(params)
+    const gas = await xerraFunction.buyXerraGas(params)
     setEstimateGas(gas)
-    setToken('usdtBuy')
+    setToken('xerraBuy')
     setShowValidate(true)
   }
 
   const handleEtrBuy = async () => {
-    const gas = await contractFunction.etrBuyGas(params)
+    const gas = await xerraFunction.sellXerraGas(params)
     setEstimateGas(gas)
-    setToken('etrBuy')
+    setToken('xerraSell')
     setShowValidate(true)
   }
 
@@ -101,7 +99,7 @@ const Buy = () => {
   
       <Card style={{ width: '550px', borderRadius: '10px' }}>
         <Form>
-          <Typography.Title level={3}>Crypto Market</Typography.Title>
+          <Typography.Title level={3}>Xerra Market</Typography.Title>
           <Typography.Text>From</Typography.Text>
           <Form.Item>
             {isUsdt ? (
@@ -125,16 +123,16 @@ const Buy = () => {
                 onChange={handleEtrCalculate}
                 suffix={
                   <div className="grid place-content-center grid-cols-2 h-full w-full">
-                    <Avatar src="https://img.icons8.com/external-creatype-flat-colourcreatype/344/external-electron-science-education-flat-creatype-flat-colourcreatype.png" />
+                    <Avatar src="https://img.icons8.com/ios/344/terra-tech.png" />
                     <p className="grid place-content-center h-full font-bold text-slate-500">
-                      ETR
+                      XRA
                     </p>
                   </div>
                 }
                 style={{
                   color: 'black',
                 }}
-                value={parseFloat(curEtr)}
+                value={parseFloat(curXra)}
               />
             )}
             <div
@@ -153,9 +151,9 @@ const Buy = () => {
                 ) : (
                   <label>
                     <label style={{ color: 'black' }}>
-                      {parseFloat(myEtrBalance).toFixed(5)}
+                      {parseFloat(myXerraBalance).toFixed(5)}
                     </label>
-                    <label> ETR</label>
+                    <label> XRA</label>
                   </label>
                 )}
               </Typography.Text>
@@ -204,16 +202,16 @@ const Buy = () => {
                 onChange={handleEtrCalculate}
                 suffix={
                   <div className="grid place-content-center grid-cols-2 h-full w-full">
-                    <Avatar src="https://img.icons8.com/external-creatype-flat-colourcreatype/344/external-electron-science-education-flat-creatype-flat-colourcreatype.png" />
+                    <Avatar src="https://img.icons8.com/ios/344/terra-tech.png" />
                     <p className="grid place-content-center h-full font-bold text-slate-500">
-                      ETR
+                      XRA
                     </p>
                   </div>
                 }
                 style={{
                   color: 'black',
                 }}
-                value={parseFloat(curEtr)}
+                value={parseFloat(curXra)}
               />
             )}
           </Form.Item>
@@ -241,4 +239,4 @@ const Buy = () => {
   )
 }
 
-export default Buy
+export default BuyCard

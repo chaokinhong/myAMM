@@ -3,6 +3,7 @@ import { Form, Modal, Typography, Input, Avatar, Spin } from 'antd'
 import { ContractContext } from '../context'
 import { useNavigate } from 'react-router'
 import * as reduxAction from '../redux/actions/pre'
+import * as xerraFunction from '../redux/actions/xerra'
 
 const ValidateModal = ({
   params,
@@ -23,14 +24,16 @@ const ValidateModal = ({
   const [spinning, setSpinning] = React.useState(false)
   const navigate = useNavigate()
 
-  const handleCancel = () =>{
+  const handleCancel = () => {
+    validateForm.resetFields()
     setSeeModal(false)
     setShowValidate(false)
-    navigate(0)
     setParams()
     setEstimateGas()
-
+    navigate(0)
+    setSpinning(false)
   }
+
   const handleValidation = async (form) => {
     const isCorrect = await validateFundPassword(form.fpw)
     switch (token) {
@@ -38,13 +41,7 @@ const ValidateModal = ({
         if (isCorrect) {
           setSpinning(true)
           await reduxAction.lockUsdt(params, navigate)
-          validateForm.resetFields()
-          setSeeModal(false)
-          setShowValidate(false)
-          setParams()
-          setEstimateGas()
-          navigate(0)
-          setSpinning(false)
+          handleCancel()
         } else {
           alert('Wrong Fund Password')
           validateForm.resetFields()
@@ -52,14 +49,8 @@ const ValidateModal = ({
       case 'electricity':
         if (isCorrect) {
           setSpinning(true)
-          await reduxAction.lockElec(params, navigate)
-          validateForm.resetFields()
-          setSeeModal(false)
-          setShowValidate(false)
-          setParams()
-          setEstimateGas()
-          navigate(0)
-          setSpinning(false)
+          await reduxAction.lockElecAndStake(params, navigate)
+          handleCancel()
         } else {
           alert('Wrong Fund Password')
           validateForm.resetFields()
@@ -68,13 +59,107 @@ const ValidateModal = ({
         if (isCorrect) {
           setSpinning(true)
           await reduxAction.lockEtr(params, navigate)
+          handleCancel()
+        } else {
+          alert('Wrong Fund Password')
           validateForm.resetFields()
-          setSeeModal(false)
-          setShowValidate(false)
-          setParams()
-          setEstimateGas()
-          navigate(0)
-          setSpinning(false)
+        }
+      case 'usdtBuy':
+        if (isCorrect) {
+          setSpinning(true)
+          await reduxAction.tokenBuy(params)
+          handleCancel()
+        } else {
+          alert('Wrong Fund Password')
+          validateForm.resetFields()
+        }
+      case 'etrBuy':
+        if (isCorrect) {
+          setSpinning(true)
+          await reduxAction.etrBuy(params)
+          handleCancel()
+        } else {
+          alert('Wrong Fund Password')
+          validateForm.resetFields()
+        }
+      case 'lpAdd':
+        if (isCorrect) {
+          setSpinning(true)
+          await reduxAction.lockUsdt(params.usdt, navigate)
+          await reduxAction.lockEtr(params.etr, navigate)
+          handleCancel()
+        } else {
+          alert('Wrong Fund Password')
+          validateForm.resetFields()
+        }
+      case 'lpRedeem':
+        if (isCorrect) {
+          setSpinning(true)
+          if (params.usdt > 0 && params.etr == 0) {
+            await reduxAction.withdrawUsdt(params.usdt)
+            handleCancel()
+          } else if (params.etr > 0 && params.usdt == 0) {
+            await reduxAction.withdrawEtr(params.etr)
+            handleCancel()
+          } else {
+            await reduxAction.withdrawUsdt(params.usdt)
+            await reduxAction.withdrawEtr(params.etr)
+            handleCancel()
+          }
+        } else {
+          alert('Wrong Fund Password')
+          validateForm.resetFields()
+        }
+      case 'etr2elec':
+        if (isCorrect) {
+          setSpinning(true)
+          await reduxAction.etr2Electricity(params)
+          handleCancel()
+        } else {
+          alert('Wrong Fund Password')
+          validateForm.resetFields()
+        }
+      case 'elec2etr':
+        if (isCorrect) {
+          setSpinning(true)
+          await reduxAction.lockElec(params)
+          handleCancel()
+        } else {
+          alert('Wrong Fund Password')
+          validateForm.resetFields()
+        }
+      case 'xerra':
+        if (isCorrect) {
+          setSpinning(true)
+          await xerraFunction.preBuyXerra(params)
+          handleCancel()
+        } else {
+          alert('Wrong Fund Password')
+          validateForm.resetFields()
+        }
+      case 'xerraBuy':
+        if (isCorrect) {
+          setSpinning(true)
+          await xerraFunction.buyXerra(params)
+          handleCancel()
+        } else {
+          alert('Wrong Fund Password')
+          validateForm.resetFields()
+        }
+      case 'xerraSell':
+        if (isCorrect) {
+          setSpinning(true)
+          await xerraFunction.sellXerra(params)
+          handleCancel()
+        } else {
+          alert('Wrong Fund Password')
+          validateForm.resetFields()
+        }
+      case 'xerraUsdtStake':
+        if (isCorrect) {
+          setSpinning(true)
+          await xerraFunction.buyUSDTBond(params)
+          handleCancel()
         } else {
           alert('Wrong Fund Password')
           validateForm.resetFields()

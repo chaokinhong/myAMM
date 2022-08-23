@@ -1,5 +1,5 @@
 import React from 'react'
-import { Modal, Form, Spin, Input, Avatar } from 'antd'
+import { Modal, Form, Input, Avatar,Spin} from 'antd'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router'
 import { ContractContext } from '../../context'
